@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -179,3 +180,20 @@ cython_debug/
 
 # Ignore everything in a data folder when i make one
 data/
+=======
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+>>>>>>> bdb6e99 (R - kuramoto)
+
+<<<<<<< HEAD
+# Remote version
+.Rhistory
+.RData
+=======
+# Your local version
+.Rproj.user/
+.Ruserdata
+*.Rproj
+>>>>>>> bdb6e99... R - kuramoto
