@@ -11,7 +11,7 @@ prep <- read.delim("../Data/PrepData.csv", sep = ",")
 prep$CallType <- ifelse(is.na(prep$CallType), "InitiationCall", prep$CallType)
 
 # Model
-mod <- cmdstan_model("stan model/kuramoto_model.stan")#, cpp_options = list(stan_threads = TRUE))
+mod <- cmdstan_model("stan model/kuramoto_shared_coupling.stan")#, cpp_options = list(stan_threads = TRUE))
 
 # Prepare data function
 prepare_group_data <- function(group_name, prep_data) {
@@ -96,18 +96,18 @@ data_G1_small <- prepare_group_data("G1", prep_small)
 
 
 system.time({
-  fit_G1_small <- mod$sample(
+  fit_shared <- mod$sample(
     data = data_G1_small$data,
     chains = 1,
-    iter_warmup = 250,
-    iter_sampling = 250,
-    max_treedepth = 10,
-    adapt_delta = 0.9,
+    iter_warmup = 500,
+    iter_sampling = 500,
+    max_treedepth = 15,
+    adapt_delta = 0.95,
     init = function() list(
       omega = rep(0, data_G1_small$data$N_whales),
       K = 0.1,
-      A_raw = rep(0, data_G1_small$data$N_pairs),
-      sigma = 0.5
+      A_shared = 0.1,
+      sigma = 0.05
     )
   )
 })
@@ -116,6 +116,11 @@ fit_G1_small$summary(variables = c("K", "sigma", "lp__"))
 
 fit_G1_small$summary() %>%
   dplyr::filter(rhat > 1.01 | ess_bulk < 100)
+
+posterior <- fit_G1_small$draws(format = "draws_df")
+
+library(bayesplot)
+mcmc_trace(posterior, pars = c("omega[1]", "omega[2]", "K", "sigma"))
 
 
 
