@@ -182,14 +182,13 @@ cython_debug/
 data/
 exec/
 fits/
-=======
+
+# R
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
->>>>>>> bdb6e99 (R - kuramoto)
 
-<<<<<<< HEAD
 # Remote version
 .Rhistory
 .RData
@@ -198,4 +197,4 @@ fits/
 .Rproj.user/
 .Ruserdata
 *.Rproj
->>>>>>> bdb6e99... R - kuramoto
+
