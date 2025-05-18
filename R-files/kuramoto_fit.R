@@ -10,18 +10,40 @@ library(reshape2)
 prep <- read.delim("../Data/PrepData.csv", sep = ",")
 prep$CallType <- ifelse(is.na(prep$CallType), "InitiationCall", prep$CallType)
 
+
+
+
+prep %>%
+  filter(Group == "G1") %>%
+  ggplot(aes(x = Latency)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Latency between calls in G1", x = "Seconds", y = "Count")
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Model
 mod <- cmdstan_model("stan model/kuramoto_shared_coupling.stan")#, cpp_options = list(stan_threads = TRUE))
 
 # Prepare data function
 prepare_group_data <- function(group_name, prep_data) {
-  group_data <- prep_data %>%
+  group_data <- prep %>%
     filter(Group == group_name) %>%
-    arrange(bout, Latency) %>%
+    arrange(bout, StartTime) %>%
     group_by(bout) %>%
+    arrange(StartTime, .by_group = TRUE) %>%
     mutate(
       CallIndex = row_number(),
-      CallTime = cumsum(replace_na(Latency, 0))
+      CallTime = StartTime
     ) %>%
     ungroup() %>%
     mutate(
@@ -85,32 +107,34 @@ prepare_group_data <- function(group_name, prep_data) {
 
 # --------- Prep Small
 
-# Try only the first 2 bouts
+# Create a small subset (2 bouts from G1)
 prep_small <- prep %>%
   filter(Group == "G1") %>%
   group_by(bout) %>%
   filter(bout %in% unique(bout)[1:2]) %>%
-  ungroup()
+  ungroup() %>%
+  arrange(bout, StartTime) 
 
 data_G1_small <- prepare_group_data("G1", prep_small)
+summary(diff(data_G1_small$data$time))
 
 
-system.time({
-  fit_shared <- mod$sample(
-    data = data_G1_small$data,
-    chains = 1,
-    iter_warmup = 500,
-    iter_sampling = 500,
-    max_treedepth = 15,
-    adapt_delta = 0.95,
-    init = function() list(
-      omega = rep(0, data_G1_small$data$N_whales),
-      K = 0.1,
-      A_shared = 0.1,
-      sigma = 0.05
-    )
+fit_shared <- mod$sample(
+  data = data_G1_small$data,
+  chains = 1,
+  iter_warmup = 200,
+  iter_sampling = 200,
+  max_treedepth = 20,
+  adapt_delta = 0.85,  # less aggressive
+  refresh = 10,
+  init = function() list(
+    omega = rep(0, data_G1_small$data$N_whales),
+    K = 0.1,
+    A_shared = 0.1,
+    sigma = 0.5
   )
-})
+)
+
 
 fit_G1_small$summary(variables = c("K", "sigma", "lp__"))
 
@@ -124,31 +148,3 @@ mcmc_trace(posterior, pars = c("omega[1]", "omega[2]", "K", "sigma"))
 
 
 
-# --------- Prep Big - too big to run at the moment ----------------- #
-
-
-# data_G1 <- prepare_group_data("G1", prep)
-# data_G2 <- prepare_group_data("G2", prep)
-# data_G3 <- prepare_group_data("G3", prep)
-
-
-# Running G1 on computer
-# fit_G1 <- mod$sample(
-#   data = data_G2$data,
-#   chains = 1,
-#   iter_warmup = 1000,
-#   iter_sampling = 1000,
-#   max_treedepth = 20,
-#   adapt_delta = 0.95,
-#   init = function() list(
-#     omega = rep(0, data_G1$data$N_whales),
-#     K = 0.1,
-#     A_raw = rep(0, data_G1$data$N_pairs),
-#     sigma = 0.5
-#   )
-# )
-
-
-
-#fit_G1$cmdstan_diagnose()
-#fit_G1$summary() %>% dplyr::filter(rhat > 1.01 | ess_bulk < 400)
