@@ -180,6 +180,8 @@ cython_debug/
 
 # Ignore everything in a data folder when i make one
 data/
+exec/
+fits/
 =======
 .Rproj.user
 .Rhistory
