@@ -7,12 +7,12 @@ library(ggplot2)
 library(reshape2)
 
 # --------- Load the data
-prep <- read.delim("../Data/PrepData.csv", sep = ",")
+prep <- read.delim("../../Data/PrepData.csv", sep = ",")
 prep$CallType <- ifelse(is.na(prep$CallType), "InitiationCall", prep$CallType)
 
 # --------- Models
-mod <- cmdstan_model("stan model/kuramoto_model.stan")#, cpp_options = list(stan_threads = TRUE))
-mod_hier <- cmdstan_model("stan model/kuramoto_hierarchical.stan")
+#mod <- cmdstan_model("../models/kuramoto_model.stan")#, cpp_options = list(stan_threads = TRUE))
+mod <- cmdstan_model("../models/kuramoto_hierarchical.stan")
 
 # --------- Prepare data function
 prepare_group_data <- function(group_name, prep_data) {
@@ -92,7 +92,8 @@ prep_small <- prep %>%
 
 # Use prep_group_data on subset
 data_G1_small <- prepare_group_data("G1", prep_small)
-save(data_G1_small, file = "data_G1_small.RData")
+saveRDS(data_G1_small, file = "data_G1_small.rds")
+data_batch_G1 <- readRDS("data_G1_small.rds")
 
 # Check time makes sense! min = 0 
 summary(diff(data_G1_small$data$time))

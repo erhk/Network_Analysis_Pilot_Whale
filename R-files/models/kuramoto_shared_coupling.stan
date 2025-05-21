@@ -28,8 +28,12 @@ model {
     real dt = time[n] - time[n - 1];
 
     // Reset phase if new bout starts
+    //if (bout_id[n] != bout_id[n - 1]) {
+      //theta_prev = rep_vector(0, N_whales);
+    //}
     if (bout_id[n] != bout_id[n - 1]) {
       theta_prev = rep_vector(0, N_whales);
+      continue;  // Skip to next step — don't compute anything across bouts
     }
 
     // Phase dynamics for each whale

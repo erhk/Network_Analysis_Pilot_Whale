@@ -13,13 +13,17 @@ data {
 
 parameters {
   vector[N_whales]  omega;          // intrinsic call rates
-  real<lower=0>     K;              // global coupling scale
+  // real<lower=0>     K;              // global coupling scale
 
   // --- hierarchical shrinkage for the pairwise influences ---
   vector[N_pairs]   z_A;            // standard-normal
-  real<lower=0>     tau;            // global SD  (to be learned)
+  // real<lower=0>     tau;            // global SD  (to be learned)
+  
+  
+  real<lower=0.1, upper=2> tau; // Try to keep from 0
+  real<lower=0.1, upper=2> K;   // Same as tau
 
-  real<lower=0.01>  sigma;          // observation noise
+  real<lower=0.05>  sigma;          // observation noise
 }
 
 transformed parameters {
@@ -35,11 +39,12 @@ transformed parameters {
 model {
   // priors
   omega ~ normal(0, 1);
-  K     ~ normal(0, 0.5);
+  K     ~ normal(0.5, 0.3); // soften prior here
 
-  z_A   ~ normal(0, 1);      // standard-normal
-  tau   ~ exponential(1);    // strong pooling; adjust if too tight
-
+  z_A   ~ normal(0, 1);              // standard-normal
+  //tau   ~ exponential(0.1);       // strong pooling; adjust if too tight. Leaving out for now, tryong normal
+  // tau ~ normal(0.3, 0.2) T[0.05,];  
+  tau ~ normal(0.5, 0.3); // soften prior
   sigma ~ normal(0, 1) T[0.01,];
 
   // -------- likelihood (unchanged) --------
@@ -56,6 +61,9 @@ model {
       real influence = 0;
       for (j in 1:N_whales)
         influence += A[i,j] * sin(theta_prev[j] - theta_prev[i]);
+        // DEBUG PRINT - will crash R when run
+  // print("event ", n, ", whale ", i, ", influence = ", influence, ", dtheta = ", omega[i] + K * influence);
+
       dtheta[i] = omega[i] + K * influence;
     }
     theta_prev += dt * dtheta;

@@ -5,95 +5,124 @@ library(readr)
 library(cmdstanr) # for ucloud: install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos"))) 
 library(ggplot2)
 library(reshape2)
+library(purrr)
+
 
 # Load the data
-prep <- read.delim("../Data/PrepData.csv", sep = ",")
-prep$CallType <- ifelse(is.na(prep$CallType), "InitiationCall", prep$CallType)
+prep_data <- read.delim("../../data/PrepData.csv", sep = ",")
+prep_data$CallType <- ifelse(is.na(prep_data$CallType), "InitiationCall", prep_data$CallType)
 
 
 
-
-prep %>%
-  filter(Group == "G1") %>%
-  ggplot(aes(x = Latency)) +
-  geom_histogram(binwidth = 1) +
-  labs(title = "Latency between calls in G1", x = "Seconds", y = "Count")
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Model
-mod <- cmdstan_model("stan model/kuramoto_shared_coupling.stan")#, cpp_options = list(stan_threads = TRUE))
-
-# Prepare data function
-prepare_group_data <- function(group_name, prep_data) {
-  group_data <- prep %>%
+prepare_group_data_batch <- function(group_name, prep_data) {
+  num_bouts <- 5
+  
+  group_data <- prep_data %>%
     filter(Group == group_name) %>%
-    arrange(bout, StartTime) %>%
-    group_by(bout) %>%
-    arrange(StartTime, .by_group = TRUE) %>%
-    mutate(
-      CallIndex = row_number(),
-      CallTime = StartTime
-    ) %>%
-    ungroup() %>%
-    mutate(
-      WhaleIndex = as.integer(factor(WhaleID)),
-      bout_id = as.integer(factor(bout))  # Re-index bouts 1:N
+    arrange(bout, StartTime)
+  
+  first_n_bouts <- group_data %>%
+    distinct(bout) %>%
+    slice_head(n = num_bouts) %>%
+    pull(bout)
+  
+  group_data <- group_data %>%
+    filter(bout %in% first_n_bouts)
+  
+  
+  group_data <- prep_data %>%
+    filter(Group == group_name) %>%
+    arrange(bout, StartTime) 
+    # drop small bouts
+    min_whales <- 2
+    min_events <- 3
+  
+    group_data <- prep_data %>%
+      filter(Group == group_name) %>%
+      arrange(bout, StartTime)
+    
+    # Drop small bouts
+    valid_bouts <- group_data %>%
+      group_by(bout) %>%
+      summarise(
+        n_whales = n_distinct(WhaleID),
+        n_events = n(),
+        .groups = "drop"
+      ) %>%
+      filter(n_whales >= min_whales, n_events >= min_events) %>%
+      pull(bout)
+    
+    group_data <- group_data %>%
+      filter(bout %in% valid_bouts) %>%
+      group_by(bout, StartTime) %>%
+      mutate(time_group = cur_group_id()) %>%
+      ungroup() %>%
+      mutate(
+        CallTime = StartTime,
+        WhaleIndex = as.integer(factor(WhaleID)),
+        bout_id = as.integer(factor(bout))
+      )
+    
+  # Map to time[g] and bout_id[g] in Stan.
+  time_by_group <- group_data %>%
+    group_by(time_group) %>%
+    summarise(
+      time = first(CallTime),
+      bout_id = first(bout_id),
+      .groups = "drop"
     )
   
-  # Unique whale IDs in this group
-  unique_whales <- sort(unique(group_data$WhaleIndex))
+  event_group_map <- group_data %>%
+    mutate(event_id = row_number()) %>%
+    group_by(time_group) %>%
+    summarise(events = list(event_id), .groups = "drop")
   
-  # Build pairwise interactions only for bouts with 2+ whales
+  # Collects all events (calls) in each time_group.
+  # These populate event_matrix[g, k] and event_counts[g], which allow the model 
+  # to process all call events at the same time step, needed for Kuramoto batch updates.
+  max_events <- max(map_int(event_group_map$events, length))
+  event_matrix <- matrix(0, nrow = nrow(event_group_map), ncol = max_events)
+  event_counts <- integer(nrow(event_group_map))
+  
+  for (i in seq_len(nrow(event_group_map))) {
+    idxs <- event_group_map$events[[i]]
+    event_matrix[i, seq_along(idxs)] <- idxs
+    event_counts[i] <- length(idxs)
+  }
+  # Pairwise influence structure
+  # For each bout, generate all possible pairs of whales that co-occur, which represent possible directed influence.
   pair_data <- group_data %>%
     group_by(bout_id) %>%
     filter(n_distinct(WhaleIndex) >= 2) %>%
     summarise(Pairs = list(as.data.frame(t(combn(unique(WhaleIndex), 2)))), .groups = "drop") %>%
-    unnest(Pairs)
+    unnest(Pairs) %>%
+    rename(i = V1, j = V2)
   
-  # Rename V1 and V2 to i and j
-  pair_data <- pair_data %>% rename(i = V1, j = V2)
+  # Reverse direction in pairs. Might need to remove for computational time
+#  pair_data_rev <- pair_data %>% rename(i = j, j = i)
   
-  # Create reversed pairs
-  pair_data_rev <- pair_data %>% rename(i = j, j = i)
+  # Pairs final, forward + reverse. No self-pair
+ # pair_data <- bind_rows(pair_data, pair_data_rev) %>%
+  #  distinct() %>%
+   # arrange(i, j)
   
-  # Combine original, reversed, and remove duplicates
-  pair_data <- bind_rows(pair_data, pair_data_rev) %>%
-    distinct() %>%
-    arrange(i, j)
-  
-  # Add self-pairs for all whales
-  self_pairs <- group_data %>%
-    distinct(WhaleIndex) %>%
-    mutate(i = WhaleIndex, j = WhaleIndex) %>%
-    select(i, j)
-  
-  pair_data <- bind_rows(pair_data, self_pairs) %>%
-    distinct() %>%
-    arrange(i, j)
-  
-  # Build Stan data list
+  # Stan list 
   stan_data <- list(
-    N_whales = length(unique_whales),
+    N_whales = length(unique(group_data$WhaleIndex)),
     N_events = nrow(group_data),
     caller = group_data$WhaleIndex,
-    time = group_data$CallTime,
-    N_bouts = length(unique(group_data$bout_id)),
-    bout_id = group_data$bout_id,
+    time = time_by_group$time,
+    bout_id = time_by_group$bout_id,
+    time_group = group_data$time_group,
+    N_time_groups = nrow(time_by_group),
     N_pairs = nrow(pair_data),
     pair_i = pair_data$i,
-    pair_j = pair_data$j
+    pair_j = pair_data$j,
+    event_matrix = event_matrix,
+    event_counts = event_counts
   )
+  # Add max_events for Stan array dimension declaration
+  stan_data$max_events <- max(event_counts)
   
   return(list(
     data = stan_data,
@@ -104,47 +133,45 @@ prepare_group_data <- function(group_name, prep_data) {
 
 
 
-
-# --------- Prep Small
-
-# Create a small subset (2 bouts from G1)
-prep_small <- prep %>%
-  filter(Group == "G1") %>%
-  group_by(bout) %>%
-  filter(bout %in% unique(bout)[1:2]) %>%
-  ungroup() %>%
-  arrange(bout, StartTime) 
-
-data_G1_small <- prepare_group_data("G1", prep_small)
-summary(diff(data_G1_small$data$time))
+# === Run for Group G1 ===
+batch_data <- prepare_group_data_batch("G1", prep_data)
+# === Run for Group G2 ===
+batch_data_2 <- prepare_group_data_batch("G2", prep_data)
+# === Run for Group G3 ===
+batch_data_3 <- prepare_group_data_batch("G3", prep_data)
 
 
-fit_shared <- mod$sample(
-  data = data_G1_small$data,
-  chains = 1,
-  iter_warmup = 200,
-  iter_sampling = 200,
+# === Save prepped data ===
+saveRDS(batch_data, file = "data_batch_G1.rds")
+data_batch_G1 <- readRDS("data_batch_G1.rds")
+
+saveRDS(batch_data_3, file = "data_batch_G2.rds")
+data_batch_G3 <- readRDS("data_batch_G2.rds")
+
+saveRDS(batch_data_3, file = "data_batch_G3.rds")
+data_batch_G3 <- readRDS("data_batch_G3.rds")
+# === Load model ===
+mod <- cmdstan_model("../models/kuramoto_model.stan")#, cpp_options = list(stan_threads = TRUE))
+
+# === Fit model ===
+fit_G1 <- mod$sample(
+  data = data_batch_G1$data,
+  seed = 123,
+  chains = 2,
+  parallel_chains = 2,
+  #threads_per_chain = 2,
+  iter_warmup =500,
+  iter_sampling = 500,
+  refresh = 1,
   max_treedepth = 20,
-  adapt_delta = 0.85,  # less aggressive
-  refresh = 10,
-  init = function() list(
-    omega = rep(0, data_G1_small$data$N_whales),
-    K = 0.1,
-    A_shared = 0.1,
-    sigma = 0.5
-  )
+  adapt_delta = 0.99,
+  init = 0.5
+  
+  
 )
 
-
-fit_G1_small$summary(variables = c("K", "sigma", "lp__"))
-
-fit_G1_small$summary() %>%
-  dplyr::filter(rhat > 1.01 | ess_bulk < 100)
-
-posterior <- fit_G1_small$draws(format = "draws_df")
-
-library(bayesplot)
-mcmc_trace(posterior, pars = c("omega[1]", "omega[2]", "K", "sigma"))
-
-
+# === Save fit ===
+fit_G1$save_object("fit_batch_G1.rds")
+fit_G2$save_object("fit_batch_G2.rds")
+fit_G3$save_object("fit_batch_G3.rds")
 
