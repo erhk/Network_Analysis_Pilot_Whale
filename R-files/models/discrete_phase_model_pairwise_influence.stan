@@ -13,40 +13,51 @@ data {
   array[N_pairs] int<lower=1, upper=N_whales> pair_j;
 }
 
-//parameters {
-//  vector<lower=0.1>[N_whales] omega;      // intrinsic calling rates
-//  vector[N_pairs] A_raw;                  // pairwise influence (unconstrained)
-//  real<lower=0.01> sigma;                 // observation noise
-//}
+parameters {
+  //vector<lower=0.1>[N_whales] omega;      // intrinsic calling rates
+  vector<lower=0.2>[N_whales] omega;      // trying to clamp it a bit. Above still works!
+  vector[N_pairs] A_raw;                  // pairwise influence (unconstrained)
+  real<lower=0.01> sigma;                 // observation noise
+}
 
-//transformed parameters {
-//  matrix[N_whales, N_whales] A = rep_matrix(0, N_whales, N_whales);
-//  for (k in 1:N_pairs)
-//    A[pair_i[k], pair_j[k]] = A_raw[k];
-//}
+transformed parameters {
+  matrix[N_whales, N_whales] A = rep_matrix(0, N_whales, N_whales);
+  for (k in 1:N_pairs)
+    A[pair_i[k], pair_j[k]] = A_raw[k];
+}
 
-//model {
-  // Priors
-  //omega ~ normal(1, 1);
-  //A_raw ~ normal(0, 1);
-  //sigma ~ normal(0, 1) T[0.01,];
+model {
+  //Priors
+  omega ~ normal(1, 1);
+  //A_raw ~ normal(0, 1); # This still works. Just trying a tigher prior
+  A_raw ~ normal(0, 0.5);
+  sigma ~ normal(0, 1) T[0.01,];
 
-// ---- Try to model omega a bit differently. Above chunks do work though
+// ---- Try to model omega a bit differently. Model cannot run this + A[i,j] matrix :(, too unstable
 // Changes: Whales’ baseline call tendencies (omega) are drawn from a group-level 
 // distribution with mean mu_omega and spread sigma_omega.
-parameters {
-  real mu_omega;
-  real<lower=0> sigma_omega;
-  vector<lower=0>[N_whales] omega_raw;
-}
-transformed parameters {
-  vector[N_whales] omega = mu_omega + sigma_omega * omega_raw;
-}
-model {
-  mu_omega ~ normal(0.01, 0.01);
-  sigma_omega ~ exponential(1);
-  omega_raw ~ normal(0, 1);
-}
+//parameters {
+  //real mu_omega;
+  //real<lower=0> sigma_omega;
+  //vector<lower=0>[N_whales] omega_raw;
+  // # Adding A[i,j] back: Attempt at combining omega fix and A[i,j] again, doesn't work
+  //vector[N_pairs] A_raw;                  // pairwise influence (unconstrained)
+  //real<lower=0.01> sigma;                 // observation noise
+  
+//}
+//transformed parameters {
+  //vector[N_whales] omega = mu_omega + sigma_omega * omega_raw;
+  
+  // Add matrix back - doesn't work
+  //matrix[N_whales, N_whales] A = rep_matrix(0, N_whales, N_whales);
+  //for (k in 1:N_pairs)
+    //A[pair_i[k], pair_j[k]] = A_raw[k];
+//}
+//model {
+  //mu_omega ~ normal(0.01, 0.01);
+  //sigma_omega ~ exponential(1);
+  //omega_raw ~ normal(0, 1);
+
 // ------
   // Likelihood: event timing depends on omega and summed influence from others
   for (n in 2:N_events) {
