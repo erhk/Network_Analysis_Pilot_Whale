@@ -1,4 +1,5 @@
-// Discrete Phase Influence Model - Adding pairwise influence
+// Discrete Phase Influence Model - Adding pairwise influence. Still no phase! That's only in the kuramoto model. 
+// Everything related to these are named something with phase, so the name stays
 
 data {
   int<lower=1> N_events;

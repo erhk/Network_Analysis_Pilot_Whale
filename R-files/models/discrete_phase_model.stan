@@ -1,4 +1,4 @@
-// Discrete Phase Influence Model - Stepwise version
+// Discrete Phase Influence Model - Stepwise version, basic, also no phase haha
 
 data {
   int<lower=1> N_events;

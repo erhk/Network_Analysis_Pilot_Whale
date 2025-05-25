@@ -1,5 +1,10 @@
 # Analysis and visualisation of Cumulative influence model G1, G2, G3
 
+# Add all the things
+pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, bayesplot
+)
+
+#### --------------- Load all the needed files ---------------- ####
 # Load fitted models
 fit_g1 <- readRDS("fit_G1_dpi_cum.rds")
 fit_g2 <- readRDS("fit_G2_dpi_cum.rds")
