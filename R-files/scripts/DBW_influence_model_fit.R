@@ -1,4 +1,4 @@
-# Cumulative Influence Model
+# Discrete bout-wide (cumulative) Influence Model
 
 pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, bayesplot
 )
