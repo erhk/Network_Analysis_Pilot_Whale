@@ -1,20 +1,20 @@
 # Cumulative Influence Model
 
-pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2)
+pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, bayesplot
+)
 
-
-library(igraph)
-library(ggraph)
-# Load your data
+# Load data
 prep <- read.delim("../../Data/PrepData.csv", sep = ",")
 
+
+# # # ----------------------- Prepping for stan ----------------- # # #
 # Filter for Group G1
-g3_data <- prep %>%
-  filter(Group == "G3") %>%
+g1_data <- prep %>%
+  filter(Group == "G1") %>%
   arrange(BoutStartTime, time = StartTime)  # Ensure temporal order
 
-g3_data <- g3_data %>%
-  filter(Group == "G3") %>%
+g1_data <- g1_data %>%
+  filter(Group == "G1") %>%
   arrange(bout, StartTime) %>%
   mutate(
     WhaleIndex = as.integer(factor(WhaleID)), # tan can't handle characters
@@ -23,28 +23,48 @@ g3_data <- g3_data %>%
 
 
 # Define number of whales and events -  G3
-whales <- sort(unique(g3_data$WhaleIndex))
+whales <- sort(unique(g1_data$WhaleIndex))
 N_whales <- length(whales)
-N_events <- nrow(g3_data)
+N_events <- nrow(g1_data)
 
 # Generate influence pairs (dense by default)
 pairs <- expand.grid(i = whales, j = whales) %>%
   filter(i != j)  # skip self-influence, or keep if you want A[i,i]
 
 # Stan data - G3
-stan_data_g3 <- list(
+stan_data_g1 <- list(
   N_events = N_events,
   N_whales = N_whales,
-  caller = g3_data$WhaleIndex,
-  time = g3_data$StartTime,
-  N_bouts = max(g3_data$BoutIndex),
-  bout_id = g3_data$BoutIndex,
+  caller = g1_data$WhaleIndex,
+  time = g1_data$StartTime,
+  N_bouts = max(g1_data$BoutIndex),
+  bout_id = g1_data$BoutIndex,
   N_pairs = nrow(pairs),
   pair_i = pairs$i,
   pair_j = pairs$j
 )
 
-# Fit model - G1
+# Save stan data list
+#saveRDS(stan_data_g3, "g3_stan_data.rds")
+#saveRDS(stan_data_g2, "g2_stan_data.rds")
+#saveRDS(stan_data_g1, "g1_stan_data.rds")
+#
+
+# Save whale Id mapping
+whale_id_map <- g1_data %>%
+  select(WhaleID, WhaleIndex) %>%
+  distinct() %>%
+  arrange(WhaleIndex)
+
+saveRDS(whale_id_map, "g1_whale_id_map.rds")
+
+# Save OG subsetted data
+#saveRDS(g1_data, "g1_data.rds")
+
+
+
+
+# # # -----------------------Fit Models  ----------------- # # #
 
 mod <- cmdstan_model("../models/Discrete Phase Influence Model _Cumulative Bout-Wise Influence.stan", cpp_options = list(stan_threads = TRUE))
 
@@ -62,9 +82,9 @@ fit <- mod$sample(
 )
 #fit$save_object("fit_G1_dpi_cum.rds") 
 #fit$save_object("fit_G2_dpi_cum.rds")
-fit$save_object("fit_G3_dpi_cum.rds")
+#fit$save_object("fit_G3_dpi_cum.rds")
 
-
+# ----- Model fit checks ------
 
 # check rhat - ideally all above 1
 fit$summary() |>
@@ -77,18 +97,15 @@ fit$summary() |>
 # diagnostics summary
 fit$diagnostic_summary()
 
-library(bayesplot)
 
-# Example:
-mcmc_parcoord(fit$draws(), pars = c("omega[1]", "omega[2]", "A_raw[1]", "A_raw[2]"),
-              transform = TRUE, np = nuts_params(fit)) +
-  ggtitle("Divergences highlighted")
+
+# # # ----------------------- Visualise ----------------- # # #
 
 
 
 # Permanently map whaleid back onto whaleindex, so we have their actual identities again
-g1_data <- g1_data %>%
-  mutate(WhaleIndex = WhaleID)
+#g1_data <- g1_data %>%
+#  mutate(WhaleIndex = WhaleID)
 
 # Temporary remapping, but it's kinda annoying
 whale_id_map <- g1_data %>%
@@ -126,8 +143,7 @@ summary_A_named <- summary_A %>%
   rename(j_label = WhaleID) %>%
   mutate(pair = paste0("A[", i_label, ", ", j_label, "]"))
 
-library(tidybayes)
-library(ggplot2)
+
 
 # Example: extract full draws of A_raw[k] with labels
 draws_A_full <- fit$draws("A_raw") %>%
