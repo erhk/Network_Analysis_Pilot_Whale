@@ -66,7 +66,7 @@ whale_id_map <- g1_data %>%
 
 #### --------------- Fit Models  ------------------- ####
 
-mod <- cmdstan_model("../models/biscrete bout-wide influence model.stan", cpp_options = list(stan_threads = TRUE))
+mod <- cmdstan_model("../models/discrete bout-wide influence model.stan", cpp_options = list(stan_threads = TRUE))
 
 fit <- mod$sample(
   data = stan_data_g3,
