@@ -16,10 +16,12 @@ data {
 }
                                                   
 parameters {
+  
   vector<lower=0.2>[N_whales] omega;   // Baseline call rate per whale (must be positive)
   vector[N_pairs] A_raw; // Raw innfluence strength from j to i
   real<lower=0.01> sigma; // Observation noise in delay durations
-  real<lower=0> lambda; // Time decay rate for influence. this might be too much, not sure if it'll work
+  //real<lower=0> lambda; // Time decay rate for influence. this might be too much, not sure if it'll work
+  vector<lower=0>[N_whales] lambda;
 }
 
 transformed parameters {
@@ -36,7 +38,7 @@ model {
   // Priors --------------------------------
   // Baseline calling tendency: omega ~ N(1, 1)
   omega ~ normal(1, 1);
-
+  
   // Pairwise influence strengths: A_raw ~ N(0, 0.5)
   // (More conservative prior to avoid model exploding in my face when fitting)
   A_raw ~ normal(0, 0.5);
@@ -45,8 +47,8 @@ model {
   sigma ~ normal(0, 1) T[0.01,];
 
   // Decay rate for time-based influence (positive exponential prior) - no clue what will happen! Might need adjusted!
-  lambda ~ exponential(1);
-
+  //lambda ~ exponential(1);
+  lambda ~ normal(1, 0.5) T[0, ];
 
   // Likelihood --------------------------------
   for (n in 2:N_events) { // Starts at call 2, because it's alwats a comparison to previous ones, can't compare to nothing!
@@ -59,19 +61,27 @@ model {
         int j = caller[m]; // Whale[j] who called at time[m]
         real delta_t = time[n] - time[m];  // Time since previous call
 
-        if (delta_t > 0) { // Guard against zero or negative lag (same timestamp)
+        if (delta_t > 0) {
+        // Use whale-specific decay rate lambda[i]
+          real decay = exp(-lambda[i] * delta_t);
+
+        // Accumulate influence from j to i, decayed by i's memory
+          influence_sum += A[i, j] * decay;
+        }
+        // Previous model, models global decay, not whale level 
+        //if (delta_t > 0) { // Guard against zero or negative lag (same timestamp)
           
           // Close to riccardo coursenotes, but with help from chatgpt
           // Exponential decay: recent calls have stronger effec. 
           // Apply exponential decay:
           //More recent calls → higher decay value → stronger influence.
           //Older calls → lower decay → diminished effect. Lambda controls how fast this decay happens.
-          real decay = exp(-lambda * delta_t);
+          //real decay = exp(-lambda * delta_t);
 
           // Accumulate influence from j to i, decayed by time lag. Multiply by decay to downweight older influence.
           // Add to the running total influence_sum, that represents all the cumulative influence on whale i before event n in this bout.
-          influence_sum += A[i, j] * decay;
-        }
+          //influence_sum += A[i, j] * decay;
+        //}
       }
     }
 
