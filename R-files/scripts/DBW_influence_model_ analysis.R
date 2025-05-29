@@ -112,7 +112,7 @@ ggplot(plot_overlay_g3_col, aes(x = total_influence_g3, y = omega_median)) +
 # ---- Plot Posterior for lambda. Model is wonky, lambda looks weird, we already knew this from fit diagnostics! proceed with care
 
 # Extract posterior draws for lambda
-lambda_draws <- fit_g3$draws("lambda", format = "draws_df") %>%
+lambda_draws <- fit_g1$draws("lambda", format = "draws_df") %>%
   spread_draws(lambda[i])
 
 # Plot posterior density

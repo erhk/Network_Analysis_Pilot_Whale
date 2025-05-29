@@ -69,7 +69,7 @@ whale_id_map <- g1_data %>%
 mod <- cmdstan_model("../models/discrete bout-wide Influence model.stan", cpp_options = list(stan_threads = TRUE))
 
 fit <- mod$sample(
-  data = stan_data_g1,
+  data = stan_data_g2,
   chains = 4,
   parallel_chains = 4,
   threads_per_chain = 4,
@@ -86,6 +86,7 @@ fit <- mod$sample(
 #fit$save_object("fit_G2_lambda_normprior_all.rds")
 #fit$save_object("fit_G1_lambda_normprior_all.rds")
 
+fit$save_object("fit_G1_lambda_lognorm_all.rds")
 
 #### -------- fitting model subsets to fix lambda ---- ####
 # 

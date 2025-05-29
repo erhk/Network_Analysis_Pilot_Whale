@@ -49,6 +49,9 @@ model {
   // Decay rate for time-based influence (positive exponential prior) - no clue what will happen! Might need adjusted!
   //lambda ~ exponential(1);
   lambda ~ normal(1, 0.5) T[0, ];
+  //lambda ~ lognormal(-1, 1); would like to try this in the future. No time to run this 
+
+  
 
   // Likelihood --------------------------------
   for (n in 2:N_events) { // Starts at call 2, because it's alwats a comparison to previous ones, can't compare to nothing!
