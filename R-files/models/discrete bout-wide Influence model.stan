@@ -1,6 +1,6 @@
 // Discrete Bout-Wide Influence model
 // Models how each whale's calling time is influenced by all prior calls in the same bout,
-// with decaying influence over time between calls.
+// with decaying influence over time between calls pr whale.
 
 data {
   int<lower=1> N_events;// Total number of call events
