@@ -1,7 +1,7 @@
 # Analysis and visualisation of discrete bout-wide (cumulative) influence model: g2, g2, G3
 
 # Add all the things
-pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, bayesplot, ggrepel)  
+pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, bayesplot, ggrepel, grid, gridExtra)  
                
 
 
@@ -46,25 +46,44 @@ whale_index_to_id_g3 <- setNames(whale_id_map_g3$WhaleID, whale_id_map_g3$WhaleI
 # Extract posterior draws for omega[i]
 omega_plot_df_g3 <- fit_g3$draws("omega") %>%
   spread_draws(omega[i]) %>%
-  mutate(Whale = whale_index_to_id_g3[as.character(i)])  # map index -> ID
+  mutate(Whale = whale_index_to_id_g2[as.character(i)])  # map index -> ID
 
 # Plot posterior densities. They are bunched up at close to zero, lower bound for omega was set at 0.2
 # That constraint is being hit by the posterior, meaning your data favor low intrinsic rates
 # Suggests most of these whales are not initiating calls independently, they're socially reactive
 
-ggplot(omega_plot_df_g3, aes(x = omega, fill = Whale)) +
+p3 <- ggplot(omega_plot_df_g3, aes(x = omega, fill = Whale)) +
   geom_vline(xintercept = 0.2, linetype = "dotted", color = "red")+  # shows Stan’s lower bound
   geom_density(alpha = 0.6) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
   labs(
-    title = "Group 2 - Posterior of Baseline Calling Rates (ωᵢ)",
+    title = "Group 3",
     x = expression(omega[i]),
     y = "Density",
     fill = "Whale"
   ) +
   theme_minimal(base_size = 14)
+p3
+#ggsave("omega_post_g3_lambdamodel.png", width = 10, height = 10, units = "in")
 
-ggsave("omega_post_g3_lambdamodel.png", width = 10, height = 10, units = "in", dpi = 300)
+# Combine the plots
+plots_row <- arrangeGrob(p1, p2, p3, ncol = 3)
+
+# Create a grob for the bottom title
+bottom_title <- textGrob(
+  "Posterior of Baseline Calling Rates (ωᵢ)", 
+  gp = gpar(fontsize = 14),
+  hjust = 0.5
+)
+
+# Stack plots + bottom title
+grid.arrange(plots_row, bottom_title, nrow = 2, heights = c(1, 0.1))
+
+# Combine everything into one grob
+combined_plot <- arrangeGrob(plots_row, bottom_title, nrow = 2, heights = c(1, 0.1))
+
+# Save it
+ggsave("omega_posterior_all.png", combined_plot, width = 12, height = 5, dpi = 300)
 
 # ---- Overlay influence and omega
 omega_summary_g3 <- fit_g3$draws("omega") %>%
@@ -116,18 +135,36 @@ lambda_draws <- fit_g1$draws("lambda", format = "draws_df") %>%
   spread_draws(lambda[i])
 
 # Plot posterior density
-ggplot(lambda_draws, aes(x = lambda)) +
+p1 <- ggplot(lambda_draws, aes(x = lambda)) +
   geom_density(fill = "skyblue", alpha = 0.6) +
   geom_vline(xintercept = 1.0, linetype = "dashed", color = "gray40", linewidth = 1) +
   labs(
-    title = "Posterior Distribution of λ (Decay Rate)",
+    title = "Group 1",
     x = expression(lambda),
     y = "Posterior Density"
   ) +
   theme_minimal(base_size = 14)
-
+p1
+# Posterior Distribution of λ (Decay Rate)
 #ggsave("lambda[i]_post_g3.png", width = 10, height = 10, units = "in", dpi = 300)
+# Combine the plots
+plots_row <- arrangeGrob(p1, p2, p3, ncol = 3)
 
+# Create a grob for the bottom title
+bottom_title <- textGrob(
+  "Posterior Distribution of λ (Decay Rate)", 
+  gp = gpar(fontsize = 14),
+  hjust = 0.5
+)
+
+# Stack plots + bottom title
+grid.arrange(plots_row, bottom_title, nrow = 2, heights = c(1, 0.1))
+
+# Combine everything into one grob
+combined_plot_lambda <- arrangeGrob(plots_row, bottom_title, nrow = 2, heights = c(1, 0.1))
+
+# Save it
+ggsave("lambda_posterior_all.png", combined_plot_lambda, width = 12, height = 5, dpi = 300)
 
 #### --------------- Plot influence accross specific bouts, longer than 5 calls - So hard to read sadly ---------------- ####
 
@@ -356,23 +393,55 @@ omega_summary_g3 <- fit_g3$draws("omega") %>%
 # Combine all metrics
 influence_profile_g3 <- full_join(influence_received_g3, influence_exerted_g3, by = "Whale") %>%
   full_join(omega_summary_g3, by = "Whale") %>%
+  left_join(g3_data %>% select(WhaleID, Source_subgroup) %>% distinct(), 
+            by = c("Whale" = "WhaleID")) %>%
   replace_na(list(total_received = 0, total_exerted = 0))
 
-# Plot: omega vs influence exerted and received
-ggplot(influence_profile_g3, aes(x = total_exerted, y = total_received, label = Whale)) +
-  geom_point(aes(size = omega_median), color = "steelblue", alpha = 0.7) +
-  geom_text_repel(size = 4) +
+# Add labels and combine them
+influence_profile_g1$Group <- "Group 1"
+influence_profile_g2$Group <- "Group 2"
+influence_profile_g3$Group <- "Group 3"
+
+combined_profiles <- bind_rows(
+  influence_profile_g1,
+  influence_profile_g2,
+  influence_profile_g3
+)
+
+# Plot: omega vs influence exerted and received for all 3 groups
+ggplot(combined_profiles, aes(x = total_exerted, y = total_received)) +
+  geom_point(aes(size = omega_median, color = as.factor(Source_subgroup)), alpha = 0.8) +
+  geom_text_repel(aes(label = Whale), size = 4, max.overlaps = 10) +
   scale_size_continuous(name = expression(omega[i]), range = c(3, 10)) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+  scale_color_manual(name = "Subgroup", values = c("1" = "tomato", "2" = "darkturquoise")) +
+  facet_wrap(~ Group, scales = "free") +
   labs(
-    title = "Group 3: Whale Social Role: Influence vs. Baseline Calling",
+    title = "Whale Social Role: Influence vs. Baseline Calling Rate",
     x = "Total Influence Exerted (Outgoing Aᵢⱼ)",
     y = "Total Influence Received (Incoming Aᵢⱼ)"
   ) +
   theme_minimal(base_size = 14)
 
-ggsave("Lambda_model_Influence_give_receive_g3.png", width = 10, height = 10, units = "in", dpi = 300)
+# Save it
+ggsave("omega_vs_influence_all.png", width = 12, height = 5, dpi = 300)
+
+
+# p1 <-  ggplot(influence_profile_g1, aes(x = total_exerted, y = total_received, label = Whale)) +
+#     geom_point(aes(size = omega_median, color = as.factor(Source_subgroup)), alpha = 0.7)+
+#     geom_text_repel(size = 4) +
+#     scale_size_continuous(name = expression(omega[i]), range = c(3, 10)) +
+#     #geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+#     #geom_vline(xintercept = 0, linetype = "dashed", color = "gray60") +
+#     labs(
+#       title = "Whale Social Role: Influence vs. Baseline Calling/n Group1",
+#       legend = element_text("Subgroup"),
+#       x = "Total Influence Exerted (Outgoing Aᵢⱼ)",
+#       y = "Total Influence Received (Incoming Aᵢⱼ)",
+#       color = "Subgroup"
+#     ) +
+#     theme_minimal(base_size = 14)
+# 
+
 
 
 
@@ -401,6 +470,7 @@ fit_g1$draws() %>%
   theme_minimal()
 
 #ggsave("Lambda_model_heatmap_g1.png", width = 10, height = 10, units = "in", dpi = 300)
+
 
 
 

@@ -148,12 +148,11 @@ fit$save_object("fit_G1_lambda_lognorm_all.rds")
 #### - Check model fits, especially lambda, because it's being silly :(
 
 # ---- Plot Posterior for lambda 
-fit_g2 <- readRDS("fit_G2_lambda_normprior_all.rds")
-fit <- readRDS("fit_G2_lambda_all.rds")
+fit <- readRDS("fit_G1_lambda_normprior_all.rds")
 
 
 # Extract posterior draws for lambda
-lambda_draws <- fit$draws("lambda", format = "draws_df") %>%
+lambda_draws <- fit_g1$draws("lambda", format = "draws_df") %>%
   spread_draws(lambda[i])
 
 # Plot posterior density
@@ -167,7 +166,7 @@ ggplot(lambda_draws, aes(x = lambda)) +
   ) +
   theme_minimal(base_size = 14)
 
-#ggsave("lambda_post_g2.png", width = 10, height = 10, units = "in", dpi = 300)
+ggsave("lambda_post_g1.png", width = 10, height = 10, units = "in", dpi = 300)
 
 # Diagnostics for lambda because it looks very strange, bimodal, with two peaks near 0.2 and 1.7, valley close to 1
 fit$summary("lambda")
