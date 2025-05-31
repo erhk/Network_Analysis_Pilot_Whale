@@ -292,7 +292,7 @@ ggplot(influence_df, aes(x = Time, y = Influence, color = Whale)) +
 
 #### ------------ Final Network plot, have to edit node strength text in inkscape, Edge_fan messes up alignment ---- ####
 
-# Step 1: Format edge list for plotting
+# Format edge list for plotting
 edges <- A_summary_g1 %>%
   mutate(
     Source = whale_index_to_id_g1[as.character(j)],  # j = influencer
@@ -302,11 +302,12 @@ edges <- A_summary_g1 %>%
   filter(abs(Influence) > 0.01) %>% # Filter close to zero influence
   select(Source, Target, Influence)
 
-# Graph and layout
+# Graph and layout. Edge true for directed graph
 g <- graph_from_data_frame(edges, directed = TRUE)
 
 layout <- create_layout(g, layout = 'linear', circular = TRUE)
 
+# Calculate the coordinates for each edge's start and end point, based on the layout.
 edges <- edges %>%
   mutate(
     from_x = layout$x[match(Source, layout$name)],
@@ -315,6 +316,7 @@ edges <- edges %>%
     to_y   = layout$y[match(Target, layout$name)],
     dx = to_x - from_x,
     dy = to_y - from_y,
+    # Calculate offset to the edge vector, so labels are slightly off-center (mid_x, mid_y) to reduce overlap.
     norm = sqrt(dx^2 + dy^2),
     offset_x = -dy / norm * 0.05,
     offset_y = dx / norm * 0.05,
@@ -322,11 +324,15 @@ edges <- edges %>%
     mid_y = (from_y + to_y) / 2 + offset_y
   )
 
+# Sums the absolute values of influence exerted by each whale (Source) 
+# Ie. the measure of "how much influence this whale exerts on others"
 node_strength <- edges %>%
   group_by(Source) %>%
   summarise(InfluenceStrength = sum(abs(Influence))) %>%
   ungroup()
 
+# Merges the influence strength into the layout data, and highlight the whale 
+# with the highest total outgoing influence, so it matches the call-response network in look
 layout <- layout %>%
   left_join(node_strength, by = c("name" = "Source")) %>%
   mutate(
@@ -334,6 +340,7 @@ layout <- layout %>%
     Highlight = InfluenceStrength == max(InfluenceStrength)
   )
 
+# Plot that needs a bit of editing afterwards
 ggraph(layout) +
   geom_edge_fan(
     aes(width = abs(Influence), color = Influence),
