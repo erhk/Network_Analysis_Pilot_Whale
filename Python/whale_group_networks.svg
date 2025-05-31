@@ -28,9 +28,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="pt"
-     inkscape:zoom="1.1175595"
-     inkscape:cx="587.88816"
-     inkscape:cy="353.89615"
+     inkscape:zoom="4.470238"
+     inkscape:cx="1776.4155"
+     inkscape:cy="498.29562"
      inkscape:window-width="2400"
      inkscape:window-height="1261"
      inkscape:window-x="2391"
@@ -93,6 +93,24 @@
          width="489.60001"
          height="466.32001"
          id="rect299-2" />
+    </clipPath>
+    <clipPath
+       id="p2f16a027ee-27">
+      <rect
+         x="1011.6"
+         y="26.879999"
+         width="489.60001"
+         height="466.32001"
+         id="rect299-6" />
+    </clipPath>
+    <clipPath
+       id="clipPath1">
+      <rect
+         x="1011.6"
+         y="26.879999"
+         width="489.60001"
+         height="466.32001"
+         id="rect1" />
     </clipPath>
   </defs>
   <g
@@ -2340,7 +2358,8 @@
         </g>
       </g>
       <g
-         id="text_51">
+         id="text_51"
+         transform="translate(-2.5027338,29.886188)">
         <g
            id="patch_84">
           <path
@@ -2351,7 +2370,8 @@
         </g>
         <g
            clip-path="url(#p2f16a027ee)"
-           id="g247">
+           id="g247"
+           transform="translate(3.3340833,0.53524254)">
           <!-- 38 -->
           <g
              transform="matrix(0.08457524,0.03077383,0.03077383,-0.08457524,1333.6481,375.23342)"
@@ -2491,6 +2511,40 @@
                xlink:href="#DejaVuSans-39"
                transform="translate(63.623047)"
                id="use256" />
+          </g>
+        </g>
+      </g>
+      <g
+         id="text_56-4"
+         transform="translate(-7.3217338,43.148078)"
+         style="display:inline;stroke-linecap:butt;stroke-linejoin:round">
+        <g
+           id="patch_89-2"
+           style="stroke-linecap:butt;stroke-linejoin:round">
+          <path
+             d="m 1332.0792,379.52749 10.7622,3.91597 q 2.5372,0.92322 3.4604,-1.61404 l 2.9784,-8.1853 q 0.9232,-2.53725 -1.6141,-3.46047 l -10.7622,-3.91597 q -2.5372,-0.92321 -3.4604,1.61404 l -2.9784,8.1853 q -0.9232,2.53726 1.6141,3.46047 z"
+             clip-path="url(#p2f16a027ee-27)"
+             style="fill:#ffffff;stroke:#ffffff;stroke-linecap:butt;stroke-linejoin:miter"
+             id="path255-3" />
+        </g>
+        <g
+           clip-path="url(#p2f16a027ee-27)"
+           id="g257-2"
+           style="opacity:0;stroke-linecap:butt;stroke-linejoin:round">
+          <!-- 19 -->
+          <g
+             transform="matrix(0.08457524,0.03077383,0.03077383,-0.08457524,1333.6424,375.23134)"
+             id="g256-2"
+             style="stroke-linecap:butt;stroke-linejoin:round">
+            <use
+               xlink:href="#DejaVuSans-31"
+               id="use255-1"
+               style="stroke-linecap:butt;stroke-linejoin:round" />
+            <use
+               xlink:href="#DejaVuSans-39"
+               transform="translate(63.623047)"
+               id="use256-6"
+               style="stroke-linecap:butt;stroke-linejoin:round" />
           </g>
         </g>
       </g>

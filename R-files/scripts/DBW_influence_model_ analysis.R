@@ -6,6 +6,8 @@ pacman::p_load(tidyverse, cmdstanr, tidybayes, dplyr, ggplot2, igraph, ggraph, b
 
 
 #### --------------- Load all the needed files ---------------- ####
+# Load data
+prep <- read.delim("../../Data/PrepData.csv", sep = ",")
 # Load fitted models
 fit_g1 <- readRDS("../fits/cumulative_influence/fit_g1_lambda_normprior_all.rds")
 fit_g2 <- readRDS("../fits/cumulative_influence/fit_g2_lambda_normprior_all.rds")
@@ -40,9 +42,7 @@ whale_index_to_id_g3 <- setNames(whale_id_map_g3$WhaleID, whale_id_map_g3$WhaleI
 
 
 
-#### --------------- Plots, just find and replace g(x) for different groups ---------------- ####
-
-# ---- Posterior distribution of baseline calling rates ωᵢ
+#### ------------ Posterior distribution of baseline calling rates omega and lambda---- ####
 # Extract posterior draws for omega[i]
 omega_plot_df_g3 <- fit_g3$draws("omega") %>%
   spread_draws(omega[i]) %>%
@@ -63,8 +63,6 @@ p3 <- ggplot(omega_plot_df_g3, aes(x = omega, fill = Whale)) +
     fill = "Whale"
   ) +
   theme_minimal(base_size = 14)
-p3
-#ggsave("omega_post_g3_lambdamodel.png", width = 10, height = 10, units = "in")
 
 # Combine the plots
 plots_row <- arrangeGrob(p1, p2, p3, ncol = 3)
@@ -128,7 +126,8 @@ ggplot(plot_overlay_g3_col, aes(x = total_influence_g3, y = omega_median)) +
 #ggsave("omega_influce_overlay_g3_lambdamodel.png", width = 10, height = 10, units = "in", dpi = 300)
 
 
-# ---- Plot Posterior for lambda. Model is wonky, lambda looks weird, we already knew this from fit diagnostics! proceed with care
+# ---- Plot Posterior for lambda. 
+# Model is wonky, lambda looks weird, we already knew this from fit diagnostics! proceed with care
 
 # Extract posterior draws for lambda
 lambda_draws <- fit_g1$draws("lambda", format = "draws_df") %>%
@@ -144,9 +143,9 @@ p1 <- ggplot(lambda_draws, aes(x = lambda)) +
     y = "Posterior Density"
   ) +
   theme_minimal(base_size = 14)
-p1
-# Posterior Distribution of λ (Decay Rate)
+
 #ggsave("lambda[i]_post_g3.png", width = 10, height = 10, units = "in", dpi = 300)
+
 # Combine the plots
 plots_row <- arrangeGrob(p1, p2, p3, ncol = 3)
 
@@ -166,7 +165,7 @@ combined_plot_lambda <- arrangeGrob(plots_row, bottom_title, nrow = 2, heights =
 # Save it
 ggsave("lambda_posterior_all.png", combined_plot_lambda, width = 12, height = 5, dpi = 300)
 
-#### --------------- Plot influence accross specific bouts, longer than 5 calls - So hard to read sadly ---------------- ####
+#### ------------ Plot influence accross specific bouts, longer than 5 calls - So hard to read sadly ----- ####
 
 # Identify longer bouts (more than 5 calls) 
 # When not using bouts, all long_bouts_g2[1:10] are replaced by g2_data$bout  
@@ -177,7 +176,7 @@ ggsave("lambda_posterior_all.png", combined_plot_lambda, width = 12, height = 5,
 #   unique()
 
 
-# ---- Summarize A[i,j] = mean across posterior draws
+# Summarize A[i,j] = mean across posterior draws
 A_matrix <- fit_g3$draws("A_raw") %>%
   spread_draws(A_raw[k]) %>%
   mutate(i = stan_data_g3$pair_i[k], j = stan_data_g3$pair_j[k]) %>%
@@ -191,7 +190,7 @@ for (row in 1:nrow(A_matrix)) {
   A_mat[A_matrix$i[row], A_matrix$j[row]] <- A_matrix$mean_A[row]
 }
 
-# ---- Extract per-whale lambda[i] posterior means 
+# Extract per-whale lambda[i] posterior means 
 lambda_df <- fit_g3$draws("lambda") %>%
   spread_draws(lambda[i]) %>%
   group_by(i) %>%
@@ -200,7 +199,7 @@ lambda_df <- fit_g3$draws("lambda") %>%
 # Named vector: whale index -> lambda
 lambda_vec <- setNames(lambda_df$lambda_i, as.character(lambda_df$i))
 
-# ---- Trace influence over time in each bout: cumulative influence a whale receives during each call it makes
+# Trace influence over time in each bout: cumulative influence a whale receives during each call it makes
 
 # Within a bout: Calculating the cumulative influence [i] recieves during each call: 
 # Based on previous whales who called before them:
@@ -262,7 +261,7 @@ for (b in unique(g3_data$bout)) {
   influence_traces[[as.character(b)]] <- traces
 }
 
-# ---- Combine results and annotate call times ----
+# Combine results 
 influence_df <- bind_rows(influence_traces)
 
 # Before i filter for interesting bouts - get an overview and pick a few out after
@@ -276,7 +275,7 @@ influence_df <- influence_df %>% filter(Bout %in% interesting_bouts)
 call_lines_df <- call_lines_df %>% filter(Bout %in% interesting_bouts)
 
 
-# ---- Plot ----
+# Plot teh bouts of interest
 ggplot(influence_df, aes(x = Time, y = Influence, color = Whale)) +
   geom_point(aes(size = abs(Influence))) +
   geom_vline(data = call_lines_df, aes(xintercept = Time),
@@ -292,11 +291,12 @@ ggplot(influence_df, aes(x = Time, y = Influence, color = Whale)) +
 
 
 #### ------------ Final Network plot, have to edit node strength text in inkscape, Edge_fan messes up alignment ---- ####
+
 # Step 1: Format edge list for plotting
-edges <- A_summary_g3 %>%
+edges <- A_summary_g1 %>%
   mutate(
-    Source = whale_index_to_id_g3[as.character(j)],  # j = influencer
-    Target = whale_index_to_id_g3[as.character(i)],  # i = influenced
+    Source = whale_index_to_id_g1[as.character(j)],  # j = influencer
+    Target = whale_index_to_id_g1[as.character(i)],  # i = influenced
     Influence = mean_A
   ) %>%
   filter(abs(Influence) > 0.01) %>% # Filter close to zero influence
@@ -357,43 +357,43 @@ ggraph(layout) +
     size = "Total Influence Received"
   )
 # save as svg to fix in inkscape
-ggsave("dbwlambda_model_infl_whale_network_g3.svg", width = 10, height = 10, units = "in", dpi = 300) 
+#ggsave("dbwlambda_model_infl_whale_network_g3.svg", width = 10, height = 10, units = "in", dpi = 300) 
 
 
-#### -------- Influence exerced and recieced test plot, most of these are extracted all over th place already-- ####
+#### ------------ Influence exerced and recieced plot ------------ ####
 
 # Reextrcating everything, because it's probably a mess at this point. I should learn to make good functions
 
 # Extract A[i,j] summary
-A_summary_g3 <- fit_g3$draws("A_raw") %>%
+A_summary_g1 <- fit_g1$draws("A_raw") %>%
   spread_draws(A_raw[k]) %>%
-  mutate(i = stan_data_g3$pair_i[k], j = stan_data_g3$pair_j[k]) %>%
+  mutate(i = stan_data_g1$pair_i[k], j = stan_data_g1$pair_j[k]) %>%
   group_by(i, j) %>%
   summarise(mean_A = mean(A_raw), .groups = "drop")
 
 # Influence received (row sums)
-influence_received_g3 <- A_summary_g3 %>%
+influence_received_g1 <- A_summary_g1 %>%
   group_by(i) %>%
   summarise(total_received = sum(mean_A)) %>%
-  mutate(Whale = whale_index_to_id_g3[as.character(i)])
+  mutate(Whale = whale_index_to_id_g1[as.character(i)])
 
 # Influence exerted (column sums)
-influence_exerted_g3 <- A_summary_g3 %>%
+influence_exerted_g1 <- A_summary_g1 %>%
   group_by(j) %>%
   summarise(total_exerted = sum(mean_A)) %>%
-  mutate(Whale = whale_index_to_id_g3[as.character(j)])
+  mutate(Whale = whale_index_to_id_g1[as.character(j)])
 
 # omega summary
-omega_summary_g3 <- fit_g3$draws("omega") %>%
+omega_summary_g1 <- fit_g1$draws("omega") %>%
   spread_draws(omega[i]) %>%
   group_by(i) %>%
   summarise(omega_median = median(omega)) %>%
-  mutate(Whale = whale_index_to_id_g3[as.character(i)])
+  mutate(Whale = whale_index_to_id_g1[as.character(i)])
 
 # Combine all metrics
-influence_profile_g3 <- full_join(influence_received_g3, influence_exerted_g3, by = "Whale") %>%
-  full_join(omega_summary_g3, by = "Whale") %>%
-  left_join(g3_data %>% select(WhaleID, Source_subgroup) %>% distinct(), 
+influence_profile_g1 <- full_join(influence_received_g1, influence_exerted_g1, by = "Whale") %>%
+  full_join(omega_summary_g1, by = "Whale") %>%
+  left_join(g1_data %>% select(WhaleID, Source_subgroup) %>% distinct(), 
             by = c("Whale" = "WhaleID")) %>%
   replace_na(list(total_received = 0, total_exerted = 0))
 
@@ -447,7 +447,7 @@ ggsave("omega_vs_influence_all.png", width = 12, height = 5, dpi = 300)
 
 #### --------------- Influence Matrix — Aij - Heatmaps ----------------- ####
 
-# --- Create pairs A[i,j]
+# Create pairs A[i,j]
 pair_i <- stan_data_g1$pair_i
 pair_j <- stan_data_g1$pair_j
 
@@ -470,7 +470,6 @@ fit_g1$draws() %>%
   theme_minimal()
 
 #ggsave("Lambda_model_heatmap_g1.png", width = 10, height = 10, units = "in", dpi = 300)
-
 
 
 
